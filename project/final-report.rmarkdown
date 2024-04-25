@@ -1,0 +1,43 @@
+---
+title: "Demography & Development"
+substitle: "In-depth Analysis of Population Dynamics, Economic Growth, Life Expectancy, and Military Expenditure (1960-2022)"
+author: "Srikari Galigari"
+date: "2024-04-24"
+format: html
+---
+
+```{r}
+#I label: setup
+#I include: false
+
+#libraries
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+
+#data
+unicef_indicator_2 <- read_csv("unicef_indicator_2.csv")
+unicef_metadata <- read_csv("unicef_metadata.csv")
+
+unicef_indicator_2$year <- as.integer(unicef_indicator_2$year)
+unicef_metadata$year <- as.integer(unicef_metadata$year)
+
+#transformations
+data_join <- full_join(unicef_indicator_2, unicef_metadata, by = c("country", "alpha_2_code", "alpha_3_code", "numeric_code", "year"))
+print(data_join)
+```
+
+```{r}
+map_world <- map_data("world")
+
+map_data_join <- full_join(data_join, map_world, by = c("country" = "region"))
+
+#world Map
+ggplot(map_data_join) + aes(x = long, y = lat, group = group, fill = `Life expectancy at birth, total (years)`) +
+  geom_polygon() +
+  scale_fill_gradientn(colors = rainbow(7, start = 0, end = 0.8)) +
+  labs(title = "Indicator Visualization", x = "Longitude", y = "Latitude")
+
+
+```
+

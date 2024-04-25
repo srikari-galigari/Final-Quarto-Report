@@ -1,0 +1,135 @@
+---
+title: "Growth & Defense Dynamics"
+subtitle: "An In-depth Analysis of Population Dynamics, Economic Growth, Life Expectancy, and Military Expenditure (1960-2022)"
+author: "Srikari Galiagri"
+date: "2024-04-24"
+format: html
+---
+```{r setup, include=FALSE}
+library(tidyverse)
+library(plotly)
+library(dplyr)
+library(scales)
+library(ggplot2)
+library(readr)
+library(maps)
+library(countrycode)
+
+# Read datasets
+unicef_indicator_2 <- read_csv("unicef_indicator_2.csv")
+unicef_metadata <- read_csv("unicef_metadata.csv")
+
+#convert years to integrers
+unicef_indicator_2$year <- as.integer(unicef_indicator_2$year)
+unicef_metadata$year <- as.integer(unicef_metadata$year)
+
+#merge datasets
+data_join <- full_join(unicef_indicator_2, unicef_metadata, by = c("country", "alpha_2_code", "alpha_3_code", "numeric_code", "year"))
+
+map_world <- map_data("world")
+```
+
+```{r timeseries-plot, echo=TRUE, message=FALSE, warning=FALSE, fig.cap="This line chart traces the population growth trajectories of different countries from 1960 to 2022, offering a clear view of demographic changes and trends over the past six decades."}
+
+timeseries_data <- data_join %>%
+  select(country = country, year, Population_total = `Population, total`) %>%
+  drop_na()
+
+timeseries_ggplot <- ggplot(timeseries_data, aes(x = year, y = Population_total, group = country, color = country)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::label_number(big.mark = ",", decimal.mark = ".", accuracy = 1)) +
+  labs( 
+    title = "Decades of Demographics: Global Population Growth Over Time",
+    subtitle = "Comparative Time Series Analysis of Population Trends by Country",
+    x = "Year",
+    y= "Population_total") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+timeseries_plotly <- ggplotly(timeseries_ggplot)
+print(timeseries_plotly)
+ggplotly(timeseries_ggplot)
+```
+
+```{r scatter-plotly, echo=TRUE, message=FALSE, warning=FALSE, fig.cap="Each dot represents a country, with its position revealing the relationship between its wealth, measured in GNI, and the health of its people, reflected by life expectancy at birth. This visualization emphasizes how economic factors can be intertwined with the well-being of a population."}
+
+Scatter_plot <- ggplot(data_join, aes(x = `GNI (current US$)`, y = `Life expectancy at birth, total (years)`, text = country, group = country, color = country)) +
+  geom_point() +
+  labs(title = "Wealth and Well-being: Interplay Between GNI and Life Expectancy",
+       x = "GNI (current US$)",
+       y = "Life Expectancy at Birth (years)") +
+  theme_minimal() +
+theme(legend.position = "none") 
+
+Scatter_plotly <- ggplotly(Scatter_plot)
+print(Scatter_plotly)
+ggplotly(Scatter_plot)
+```
+
+```{r bar-chart 1, fig.cap="Bar chart representing the average military expenditure as a percentage of GDP for various countries, showcasing how nations prioritize defense in their economic planning."}
+
+#bar chart 1
+
+data_summary <- data_join %>%
+  filter(!is.na(`Military expenditure (% of GDP)`)) %>%
+  group_by(`country`, year) %>%
+  summarize(Military_expenditure = mean(`Military expenditure (% of GDP)`, na.rm = TRUE), .groups = "drop")
+
+ggplot(data_summary, aes(x = reorder(`country`, Military_expenditure), y = Military_expenditure, fill = `country`)) +
+  geom_col() +
+  labs(
+    title = "National Defense Spending: A Global Comparison",
+    x = "Country",
+    y = "Military Expenditure (% of GDP)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "none")  # Rotate x-axis labels for readability and remove legend
+```
+
+```{r top-5-military-expenditure, echo=TRUE, message=FALSE, warning=FALSE, fig.cap="The bar chart delineates the changes in defense spending as a proportion of GDP for the top five investing countries, tracked from 1960 to 2022, reflecting strategic economic decisions in a historical context."}
+
+#bar chart 2
+
+avg_military_expenditure <- data_join %>%
+  filter(!is.na(`Military expenditure (% of GDP)`)) %>%
+  group_by(country, year) %>%
+  summarize(avg_military_expenditure = mean(`Military expenditure (% of GDP)`, na.rm = TRUE), .groups = "drop")
+
+# Determine the top 5 countries with the highest average military expenditure
+top_5_countries <- avg_military_expenditure %>%
+  group_by(country) %>%
+  summarize(avg_military_expenditure = mean(avg_military_expenditure, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(avg_military_expenditure)) %>%
+  slice_max(avg_military_expenditure, n = 5)
+
+# Filter the data for only the top 5 countries
+top_5_data <- avg_military_expenditure %>%
+  filter(country %in% top_5_countries$country)
+
+ggplot(top_5_data, aes(x = year, y = avg_military_expenditure, fill = factor(country))) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Average Military Expenditure (% of GDP)",
+    title = "Evolution of Average Military Expenditure per Top 5 Countries (1960-2022)"
+  ) +
+  scale_fill_manual(values = rainbow(length(unique(top_5_data$country))))  # Set colors manually
+```
+
+```{r world_map, echo=TRUE, message=FALSE, warning=FALSE, fig.cap="Map depicting the global distribution of life expectancy at birth in 2015. Warmer colors indicate higher life expectancy, while cooler colors represent lower life expectancy. Data is visualized geospatially using latitude and longitude coordinates."}
+
+data_2015 <- data_join %>% filter(year == 2015)
+
+data_2015$`Life expectancy at birth, total (years)` <- as.numeric(data_2015$`Life expectancy at birth, total (years)`)
+
+# Join the data with the map
+map_data_join <- full_join(data_2015, map_world, by = c("country" = "region"))
+
+world_map_plot <- ggplot(map_data_join) + 
+  aes(x = long, y = lat, group = group, fill = `Life expectancy at birth, total (years)`) +
+  geom_polygon() +
+  scale_fill_viridis_c(name="Life Expectancy at Birth (years)", option="C") + 
+  labs(title = "Global Distribution of Life Expectancy at Birth in 2015", x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
+print(world_map_plot)
+```

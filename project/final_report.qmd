@@ -1,0 +1,53 @@
+---
+title: "Demography & Development"
+substitle: "In-depth Analysis of Population Dynamics, Economic Growth, Life Expectancy, and Military Expenditure (1960-2022)"
+author: "Srikari Galigari"
+date: "2024-04-24"
+format: html
+---
+
+```{r}
+#I label: setup
+#I include: false
+
+#libraries
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+
+#data
+unicef_indicator_2 <- read_csv("unicef_indicator_2.csv")
+unicef_metadata <- read_csv("unicef_metadata.csv")
+
+unicef_indicator_2$year <- as.integer(unicef_indicator_2$year)
+unicef_metadata$year <- as.integer(unicef_metadata$year)
+
+#transformations
+data_join <- full_join(unicef_indicator_2, unicef_metadata, by = c("country", "alpha_2_code", "alpha_3_code", "numeric_code", "year"))
+print(data_join)
+```
+
+
+```{r}
+#I fig-cap: "Interactive Time Series of Population Growth: This figure illustrates the changes in population size from the earliest to the most recent year available in the dataset for various countries. Each line represents a different country, allowing for a comparative view of demographic trends over time. Use the interactive features to zoom in on specific periods or countries and explore finer details"
+
+timeseries_data <- data_join %>%
+  select(country = country, year, Population_total = `Population, total`) %>%
+  drop_na()
+
+timeseries_ggplot <- ggplot(timeseries_data, aes(x = year, y = Population_total, group = country, color = country)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::label_number(big.mark = ",", decimal.mark = ".", accuracy = 1)) +
+  labs( 
+    title = "Global Population Trends",
+    subtitle = "Tracking Population Growth Across Countries from 1960 to 2022",
+    x = "year",
+    y = "population_total",
+    fill = "country") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+timeseries_plotly <- ggplotly(timeseries_ggplot)
+print(timeseries_plotly)
+```
+
